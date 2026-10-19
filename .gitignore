@@ -1,0 +1,11 @@
+session/
+work/
+글/
+어사이드용/
+__pycache__/
+*.pyc
+.env
+.env*
+**/naver_state*.json
+cookies*.json
+.DS_Store

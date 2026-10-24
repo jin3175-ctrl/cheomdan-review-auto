@@ -9,3 +9,4 @@ __pycache__/
 **/naver_state*.json
 cookies*.json
 .DS_Store
+서이추기록/

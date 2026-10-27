@@ -131,12 +131,22 @@ class AsidePage:
             return ""
 
     def click_tagged(self) -> bool:
-        """data-edi-t="1" 을 단 요소를 누른다 — 진짜 클릭(locator) 먼저, 안 되면 DOM click."""
-        try:
-            self.send("await __edi.locator('[data-edi-t=\"1\"]').click({timeout: 8000}); return 1;", timeout=30)
-            ok = True
-        except RuntimeError:
-            ok = bool(self.evaluate("() => { const e = document.querySelector('[data-edi-t=\"1\"]'); "
+        """data-edi-t=x1 을 단 요소를 **진짜 마우스**로 누른다(mouse.click — isTrusted=true).
+        🔴어사이드의 locator().click()은 네이버 화면에서 못 믿는다(홈판 3기 10/25 실측: 눌러도 초점이 안 갔다).
+        좌표를 못 구하면 DOM click 으로 대신한다."""
+        pt = self.evaluate("() => { const e = document.querySelector('[data-edi-t=x1]'); if (!e) return null; "
+                           "e.scrollIntoView({block: 'center'}); const r = e.getBoundingClientRect(); "
+                           "if (!r.width || !r.height) return null; "
+                           "return {x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2}; }")
+        ok = False
+        if pt:
+            try:
+                self.send(f"await __edi.mouse.click({float(pt['x'])}, {float(pt['y'])}); return 1;", timeout=30)
+                ok = True
+            except RuntimeError:
+                ok = False
+        if not ok:
+            ok = bool(self.evaluate("() => { const e = document.querySelector('[data-edi-t=x1]'); "
                                     "if (!e) return false; e.click(); return true; }"))
         self.evaluate("() => document.querySelectorAll('[data-edi-t]').forEach((e) => e.removeAttribute('data-edi-t'))")
         return ok
@@ -192,25 +202,28 @@ def op_buddy(pg: AsidePage, target: str, message: str, dry: bool = False) -> dic
         return {"ok": False, "limit": True, "blocked": block_of(pre), "why": pre[:160]}
     if not s0["has"] or s0["disabled"]:
         return {"ok": False, "skip": True, "noBuddy": True, "why": "서로이웃을 받지 않는 블로그"}
-    if dry:
-        return {"ok": True, "dry": True, "why": "서로이웃 선택 가능(신청 안 함)"}
     pg.evaluate("() => { const b = document.querySelector('#bothBuddyRadio'); "
                 "const l = b.closest('label') || document.querySelector('label[for=bothBuddyRadio]') || b; "
-                "l.setAttribute('data-edi-t', '1'); return true; }")
+                "l.setAttribute('data-edi-t', 'x1'); return true; }")
     pg.click_tagged()
     time.sleep(0.5)
     if not pg.evaluate("() => !!(document.querySelector('#bothBuddyRadio') || {}).checked"):
         return {"ok": False, "why": "서로이웃 선택 실패"}
-    has_ta = pg.evaluate("() => { const t = document.querySelector('#inviteMessage'); "
-                         "if (!(t && t.offsetParent !== null)) return false; t.focus(); t.value = ''; "
+    # 메시지 칸: 예전 #inviteMessage → 지금은 이름 없는 textarea.textarea_t1(10/27 실측). 기본 글(예: «ㅇㅇ»)을 비운다
+    has_ta = pg.evaluate("() => { const t = [...document.querySelectorAll('#inviteMessage, textarea')]"
+                         ".find((e) => e.offsetParent !== null); if (!t) return false; t.focus(); t.select(); t.value = ''; "
                          "t.dispatchEvent(new Event('input', {bubbles: true})); return true; }")
     if has_ta and message:
         pg.type_human(message)
         time.sleep(0.4)
+    if dry:   # 미리보기: 선택·메시지까지 채우고 [확인]은 누르지 않는다(탭을 닫으면 사라진다)
+        typed = pg.evaluate("() => { const t = [...document.querySelectorAll('#inviteMessage, textarea')]"
+                            ".find((e) => e.offsetParent !== null); return t ? t.value : ''; }") or ""
+        return {"ok": True, "dry": True, "why": f"서로이웃 선택·메시지 칸 채움(신청 안 함) · 칸: «{typed}»"}
     base = pg.evaluate(LAYER_JS) or ""
     one = pg.evaluate("() => { const bs = [...document.querySelectorAll('a.btn_ok, button.btn_ok')]"
                       ".filter((b) => b.offsetParent !== null && /확인/.test(b.innerText || '')); "
-                      "if (bs.length !== 1) return false; bs[0].setAttribute('data-edi-t', '1'); return true; }")
+                      "if (bs.length !== 1) return false; bs[0].setAttribute('data-edi-t', 'x1'); return true; }")
     if not one:
         return {"ok": False, "why": "확인 버튼이 애매해서 누르지 않음"}
     pg.click_tagged()

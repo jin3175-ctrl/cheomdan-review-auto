@@ -130,7 +130,6 @@ async function opBuddy() {
   if (/이미 (추가한 )?이웃|신청 (진행 ?)?중|진행중|신청하신 상태|이미 신청|취소하시겠습니까/.test(pre + s0.body.slice(0, 160))) return { ok: false, skip: true, already: true, why: (pre.trim() || s0.body.slice(0, 80)) };
   if (/하루|초과|더 이상|한도|제한/.test(pre)) return { ok: false, limit: true, blocked: blockOf(pre), why: pre.slice(0, 160) };
   if (!s0.has || s0.disabled) return { ok: false, skip: true, noBuddy: true, why: "서로이웃을 받지 않는 블로그" };
-  if (P.dry) return { ok: true, dry: true, why: "서로이웃 선택 가능(신청 안 함)" };
   const r1 = await tagAndClick(() => {
     const b = document.querySelector('#bothBuddyRadio');
     const l = b.closest('label') || document.querySelector('label[for=bothBuddyRadio]') || b.parentElement.querySelector('label');
@@ -139,14 +138,23 @@ async function opBuddy() {
   await sleep(500);
   const chk = await page.evaluate(() => !!(document.querySelector('#bothBuddyRadio') || {}).checked);
   if (!chk) return { ok: false, why: `서로이웃 선택 실패(${r1.ok})` };
-  const ta = await page.evaluate(() => { const t = document.querySelector('#inviteMessage'); return !!(t && t.offsetParent !== null); });
+  // 메시지 칸: 예전 #inviteMessage → 지금은 이름 없는 textarea.textarea_t1(10/27 실측). 표시를 달아 누른다
+  const ta = await page.evaluate(() => {
+    const t = [...document.querySelectorAll('#inviteMessage, textarea')].find((e) => e.offsetParent !== null);
+    if (!t) return false; t.setAttribute('data-edi-m', '1'); return true;
+  });
   if (ta && P.message) {
-    await page.click('css=#inviteMessage', { label: "focus invite message" });
+    await page.click('css=[data-edi-m="1"]', { label: "focus invite message" });
     await sleep(200);
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.press("Backspace");
     await typeHuman(P.message);
     await sleep(400);
+  }
+  // 미리보기: 서로이웃 선택·메시지까지 채우고 [확인]은 누르지 않는다(공간을 닫으면 사라진다)
+  if (P.dry) {
+    const typed = await page.evaluate(() => { const t = document.querySelector('[data-edi-m="1"]'); return t ? t.value : ""; });
+    return { ok: true, dry: true, why: `서로이웃 선택·메시지 칸 채움(신청 안 함) · 칸: «${typed}»` };
   }
   const base = await layerText();
   const r2 = await tagAndClick(() => {

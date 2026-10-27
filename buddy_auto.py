@@ -353,7 +353,7 @@ def main() -> int:
             busy = 0
             if args.dry:
                 item["result"] = "미리보기" if res.get("ok") else "건너뜀"
-                log(f"  {'✓ 신청 가능' if res.get('ok') else '건너뜀'} · {why[:60]}" + (f" · 메시지: {msg}" if res.get("ok") else ""))
+                log(f"  {'✓ 신청 가능' if res.get('ok') else '건너뜀'} · {why[:110]}" + (f" · 메시지: {msg}" if res.get("ok") else ""))
                 if res.get("ok"):
                     n += 1
                 continue

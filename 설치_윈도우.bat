@@ -49,10 +49,10 @@ goto ASIDECLI
 
 :ASIDECLI
 echo.
-echo [5/5] 어사이드 CLI 를 설치합니다 (서이추 자동용)...
+echo [5/5] 어사이드 CLI 를 설치합니다 (윈도우 임시저장용)...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0aside_cli_install.ps1"
 if errorlevel 1 (
-  echo      안 됐습니다. 괜찮습니다 - 수업 때 어사이드 Settings - Developers - Aside CLI Install 로 합니다.
+  echo      안 됐습니다. 괜찮습니다 - 어사이드 Settings - Developers - Aside CLI Install 로 합니다.
 )
 goto DONE
 

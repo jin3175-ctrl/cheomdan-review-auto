@@ -4,8 +4,8 @@
 
 맥     = 에고라이트가 글쓰기 화면에 제목·글·사진·지도·태그를 넣고 임시저장한다.
          (사진만 올렸던 처음 임시저장 글은 그대로 남는다 — 새 글을 확인한 뒤 지워도 된다)
-윈도우 = 어사이드용/ 폴더에 「글 페이지」와 「어사이드에 붙여넣을 프롬프트」를 만든다.
-         어사이드가 사진만 있던 그 임시저장 글을 열어 사진 아래마다 글을 넣고 저장한다.
+윈도우 = 어사이드 CLI가 글쓰기 화면에 제목·글·사진·태그를 직접 넣고 「저장」만 누른다(aside_publish.py).
+         CLI가 없거나 실패하면 예전 방식: 어사이드용/ 폴더에 「글 페이지」와 「붙여넣을 프롬프트」.
 """
 from __future__ import annotations
 
@@ -37,6 +37,33 @@ def by_ego(doc: dict, photos: str, bid: str) -> int:
         print(f"   지도: {r['place']}  ← 주소가 맞는지 꼭 확인하세요")
     for n in r.get("notes") or []:
         print("   ⚠️", n)
+    print("\n이제 내 블로그 글쓰기 → 「저장」 옆 숫자 → 맨 위 글을 열어 확인하고, 발행은 직접 누르세요.")
+    print("사진만 올렸던 처음 글은 임시저장 목록에 그대로 있습니다(새 글을 확인한 뒤 지워도 됩니다).")
+    return 0
+
+
+def by_aside_cli(doc: dict, photos: str, bid: str) -> int:
+    """윈도우 기본 — 어사이드 CLI가 글쓰기 화면에 제목·글·사진·태그를 직접 넣고 「저장」만 누른다."""
+    import aside_publish
+    if not aside_publish.available():
+        print("[!] 어사이드 CLI(aside)가 없습니다 — 어사이드 → Settings → Developers → 「Aside CLI」 Install,")
+        print("    그다음 클로드 코드 창을 닫았다가 다시 여세요.")
+        return 2
+    m = doc["meta"]
+    tags = [t for t in m.get("태그", "").replace(",", " ").split() if t.strip("#")]
+    print("\n어사이드 창에 글쓰기 화면을 열어 넣습니다(임시저장까지만). 사진이 많으면 5~10분 걸립니다.")
+    print("그동안 어사이드 창을 만지거나 가리지 마세요.\n")
+    r = aside_publish.draft(bid, m.get("제목", ""), post.blocks(doc, photos), log=lambda x: print("   ", x),
+                            category=m.get("카테고리", "") or common.myinfo().get("내 카테고리", ""),
+                            align="center", tags=tags)
+    for n in r.get("notes") or []:
+        print("   ⚠️", n)
+    if not r.get("ok"):
+        print("[!]", r.get("message"))
+        return 2
+    print(f"\n✅ {r.get('message')}")
+    if m.get("지도"):
+        print(f"   지도는 발행할 때 직접 «장소»로 넣어 주세요: {m['지도']}")
     print("\n이제 내 블로그 글쓰기 → 「저장」 옆 숫자 → 맨 위 글을 열어 확인하고, 발행은 직접 누르세요.")
     print("사진만 올렸던 처음 글은 임시저장 목록에 그대로 있습니다(새 글을 확인한 뒤 지워도 됩니다).")
     return 0
@@ -128,6 +155,10 @@ def main() -> int:
     doc = post.read(src)
     if common.mode() == "ego":
         return by_ego(doc, photos, bid)
+    r = by_aside_cli(doc, photos, bid)
+    if r == 0:
+        return 0
+    print("\n어사이드 CLI로 못 넣었습니다 → 예전 방식(글 페이지 + 프롬프트)으로 준비합니다.")
     return by_aside(doc, photos, bid, shop)
 
 
